@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Analytics SDK Test Page 2</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>测试页面 2</h1>
     <p>这是第二个测试页面</p>
     <a href="test.html">返回测试页面1</a>
 
     <script src="analytics.js"></script>
     <script>
-        // 初始化 SDK
-        Analytics.init({
-            endpoint: 'http://localhost:8080/collect',
-            appId: 'test-app',
-            debug: true
-        });
+      // 初始化 SDK
+      Analytics.init({
+        endpoint: "http://localhost:8080/collect",
+        appId: "test-app",
+        debug: true,
+        isSPA: false,
+      });
     </script>
-</body>
+  </body>
 </html>

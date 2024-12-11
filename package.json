@@ -1,6 +1,6 @@
 {
   "name": "@lkahung/web-analytics",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Lightweight web analytics SDK for tracking website usage",
   "main": "analytics.js",
   "types": "analytics.d.ts",
