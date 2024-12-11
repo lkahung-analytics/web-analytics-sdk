@@ -1,0 +1,35 @@
+{
+  "name": "@lkahung/web-analytics",
+  "version": "0.3.1",
+  "description": "Lightweight web analytics SDK for tracking website usage",
+  "main": "analytics.js",
+  "types": "analytics.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "prepare": "npm run build",
+    "build": "echo \"Build script placeholder\""
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "web-analytics",
+    "performance",
+    "monitoring"
+  ],
+  "author": "LK",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/laungkahung/web-analytics.git"
+  },
+  "bugs": {
+    "url": "https://github.com/laungkahung/web-analytics/issues"
+  },
+  "homepage": "https://github.com/laungkahung/web-analytics#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

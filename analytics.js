@@ -5,28 +5,43 @@
     const Analytics = {
         // SDK配置
         config: {
-            endpoint: 'http://localhost:8080/collect',
-            siteId: '',
+            endpoint: '',
+            appId: '',
             debug: false,
-            heartbeatInterval: 10000 // 心跳间隔，用于追踪活跃状态
+            isSPA: true,
         },
 
         // 会话数据
         session: {
-            startTime: null,
-            lastActiveTime: null,
-            heartbeatTimer: null,
-            isActive: true
+            startTime: null
         },
 
         // 初始化SDK
         init: function(options) {
-            this.config = { ...this.config, ...options };
+            if (!options.appId) {
+                throw new Error('appId is required');
+            }
+            if (typeof options.isSPA !== 'boolean') {
+                throw new Error('isSPA parameter is required and must be a boolean');
+            }
+
+            this.config = {
+                endpoint: options.endpoint || 'http://localhost:8080/collect',
+                appId: options.appId,
+                debug: !!options.debug,
+                isSPA: options.isSPA
+            };
+
+            // 生成访客ID
+            this.visitorId = this.generateVisitorId();
+            
+            // 设置页面追踪
+            this.setupPageTracking();
+            
+            if (this.config.debug) {
+                console.log('Analytics initialized with config:', this.config);
+            }
             this.session.startTime = new Date();
-            this.session.lastActiveTime = new Date();
-            this.setupPageView();
-            this.setupEventListeners();
-            this.setupSessionTracking();
             return this;
         },
 
@@ -46,7 +61,7 @@
                 timestamp: new Date().toISOString(),
                 url: window.location.href,
                 referrer: document.referrer,
-                app_id: this.config.siteId,
+                app_id: this.config.appId,
                 visitor_id: this.generateVisitorId(),
                 user_agent: navigator.userAgent,
                 screen_resolution: `${window.screen.width}x${window.screen.height}`,
@@ -80,17 +95,23 @@
 
         // 追踪页面访问
         trackPageView: function() {
-            const sessionDuration = this.session.lastActiveTime
-                ? new Date() - this.session.startTime
-                : 0;
+            const sessionDuration = new Date() - this.session.startTime;
 
-            this.send({
+            // 使用 sendBeacon 确保数据在页面卸载时能够发送
+            const data = {
+                ...this.getBaseData(),
                 event_type: 'pageview',
                 title: document.title,
                 path: window.location.pathname,
-                session_duration: sessionDuration,
-                is_active: this.session.isActive
-            });
+                session_duration: sessionDuration
+            };
+
+            if (this.config.debug) {
+                console.log('[Analytics] Sending pageview:', data);
+            }
+
+            // 使用 sendBeacon 来确保数据发送
+            navigator.sendBeacon(this.config.endpoint, JSON.stringify(data));
         },
 
         // 追踪自定义事件
@@ -104,81 +125,24 @@
             });
         },
 
-        // 设置页面访问追踪
-        setupPageView: function() {
-            this.trackPageView();
-            // 处理单页应用的路由变化
-            window.addEventListener('popstate', () => this.trackPageView());
-        },
-
-        // 设置会话追踪
-        setupSessionTracking: function() {
-            // 更新活跃状态
-            const updateActivity = () => {
-                this.session.lastActiveTime = new Date();
-                this.session.isActive = true;
-                this.sendHeartbeat();
-            };
-
-            // 发送心跳
-            const sendHeartbeat = () => {
-                if (this.session.isActive) {
-                    this.send({
-                        event_type: 'heartbeat',
-                        session_duration: new Date() - this.session.startTime,
-                        last_active: this.session.lastActiveTime.toISOString()
-                    });
-                }
-            };
-
-            // 设置心跳定时器
-            this.session.heartbeatTimer = setInterval(sendHeartbeat, this.config.heartbeatInterval);
-
-            // 监听用户活动
-            const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-            activityEvents.forEach(event => {
-                document.addEventListener(event, updateActivity);
-            });
-
-            // 监听页面可见性变化
-            document.addEventListener('visibilitychange', () => {
-                this.session.isActive = !document.hidden;
-                if (!document.hidden) {
-                    updateActivity();
-                }
-            });
-
-            // 页面卸载时发送最终统计
-            window.addEventListener('beforeunload', () => {
-                this.send({
-                    event_type: 'session_end',
-                    session_duration: new Date() - this.session.startTime,
-                    last_active: this.session.lastActiveTime.toISOString()
+        // 设置页面追踪
+        setupPageTracking: function() {
+            // 只在非 SPA 模式下添加 beforeunload 监听
+            if (!this.config.isSPA) {
+                window.addEventListener('beforeunload', () => {
+                    this.trackPageView();
                 });
-            });
-        },
-
-        // 设置自动事件追踪
-        setupEventListeners: function() {
-            // 点击事件追踪
-            document.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.tagName === 'A') {
-                    this.trackEvent('link', 'click', target.href);
-                } else if (target.tagName === 'BUTTON') {
-                    this.trackEvent('button', 'click', target.textContent);
-                }
-            });
-
-            // 表单提交追踪
-            document.addEventListener('submit', (e) => {
-                if (e.target.tagName === 'FORM') {
-                    this.trackEvent('form', 'submit', e.target.id || e.target.action);
-                }
-            });
+            }
         }
     };
 
-    // 暴露给全局
-    window.Analytics = Analytics;
+    // 如果是 Node.js 环境，使用 module.exports
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = Analytics;
+    }
+
+    // 如果是浏览器环境，挂载到 window
+    if (typeof window !== 'undefined') {
+        window.Analytics = Analytics;
+    }
 })(window);

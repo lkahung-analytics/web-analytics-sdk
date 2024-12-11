@@ -1,0 +1,22 @@
+# Ignore development and git files
+.git
+.gitignore
+node_modules/
+npm-debug.log
+.DS_Store
+
+# Ignore source files not needed in distribution
+test/
+examples/
+docs/
+src/
+
+# Ignore configuration files
+.eslintrc
+.prettierrc
+tsconfig.json
+
+# Ignore any build scripts or additional development files
+build/
+scripts/
+*.config.js

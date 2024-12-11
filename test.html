@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Analytics SDK Test</title>
+  </head>
+  <body>
+    <h1>Analytics SDK Test Page</h1>
+    <div style="margin: 20px 0">
+      <h3>测试链接：</h3>
+      <ul>
+        <li>
+          <a href="https://www.google.com" target="_blank"
+            >外部链接 - 跳转到 Google</a
+          >
+        </li>
+        <li><a href="test2.html">内部链接 - 跳转到测试页面2</a></li>
+        <li><a href="#section1">锚点链接 - 跳转到当前页面的某个部分</a></li>
+        <li>
+          <a
+            href="javascript:void(0)"
+            onclick="window.location.href='test3.html'"
+            >JavaScript 跳转</a
+          >
+        </li>
+      </ul>
+    </div>
+    <button id="testEvent">Test Custom Event</button>
+    <button id="changePage">Change Page Title</button>
+
+    <div id="section1" style="margin-top: 1000px">
+      <h2>Section 1</h2>
+      <p>这是一个锚点测试区域</p>
+    </div>
+
+    <script src="analytics.js"></script>
+    <script>
+      // 初始化 SDK
+      Analytics.init({
+        endpoint: "http://localhost:8080/collect",
+        appId: "test-app",
+        debug: true,
+      });
+
+      // 测试自定义事件
+      document.getElementById("testEvent").addEventListener("click", () => {
+        Analytics.trackEvent("button", "click", "test-button", 1);
+      });
+
+      // 测试页面标题变化
+      document.getElementById("changePage").addEventListener("click", () => {
+        document.title = "New Page Title - " + new Date().toISOString();
+      });
+    </script>
+  </body>
+</html>
