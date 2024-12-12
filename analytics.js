@@ -34,10 +34,10 @@
 
             // 生成访客ID
             this.visitorId = this.generateVisitorId();
-            
+
             // 设置页面追踪
             this.setupPageTracking();
-            
+
             if (this.config.debug) {
                 console.log('Analytics initialized with config:', this.config);
             }
@@ -59,12 +59,16 @@
         getBaseData: function() {
             return {
                 timestamp: new Date().toISOString(),
-                url: window.location.href,
-                referrer: document.referrer,
+                page_url: window.location.href,
+                page_title: document.title,
+                page_referrer: document.referrer,
                 app_id: this.config.appId,
                 visitor_id: this.generateVisitorId(),
                 user_agent: navigator.userAgent,
-                screen_resolution: `${window.screen.width}x${window.screen.height}`,
+                screen_width: window.screen.width,
+                screen_height: window.screen.height,
+                viewport_width: window.innerWidth,
+                viewport_height: window.innerHeight,
                 language: navigator.language
             };
         },
@@ -101,8 +105,6 @@
             const data = {
                 ...this.getBaseData(),
                 event_type: 'pageview',
-                title: document.title,
-                path: window.location.pathname,
                 session_duration: sessionDuration
             };
 
