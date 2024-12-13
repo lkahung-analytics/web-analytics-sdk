@@ -24,32 +24,34 @@ npm install @lkahung/web-analytics
 <script src="https://unpkg.com/@lkahung/web-analytics"></script>
 <script>
   Analytics.init({
-    appId: 'your-site-id',
-    endpoint: 'https://your-analytics-endpoint.com/collect',
-    debug: true
+    appId: "your-app-id",
+    endpoint: "https://your-analytics-endpoint.com/collect",
+    debug: true,
+    isSPA: false,
   });
 
   // Track a page view
   Analytics.trackPageView();
 
   // Track a custom event
-  Analytics.trackEvent('category', 'action', 'label', value);
+  Analytics.trackEvent("category", "action", "label", value);
 </script>
 ```
 
 ### Node.js / Modern JavaScript
 
 ```javascript
-import Analytics from '@lkahung/web-analytics';
+import Analytics from "@lkahung/web-analytics";
 
 Analytics.init({
-  appId: 'your-site-id',
-  endpoint: 'https://your-analytics-endpoint.com/collect',
-  debug: true
+  appId: "your-app-id",
+  endpoint: "https://your-analytics-endpoint.com/collect",
+  debug: true,
+  isSPA: true,
 });
 
 // Track events
-Analytics.trackEvent('button', 'click', 'signup-button');
+Analytics.trackEvent("button", "click", "signup-button");
 ```
 
 ## 📝 Configuration
@@ -58,6 +60,7 @@ Analytics.trackEvent('button', 'click', 'signup-button');
 - `isSPA`: **Required**. Boolean flag to indicate if the application is a Single Page Application
 - `endpoint`: Optional. Custom collection endpoint (defaults to http://localhost:8080/collect)
 - `debug`: Optional. Enable console logging (defaults to false)
+- `isSPA`: Optional. Boolean flag to indicate if the application is a Single Page Application
 
 ## 🔄 SPA Integration
 
@@ -67,21 +70,21 @@ For Single Page Applications, make sure to set `isSPA: true` when initializing t
 
 ```typescript
 // plugins/analytics.client.ts
-import Analytics from '@lkahung/web-analytics'
+import Analytics from "@lkahung/web-analytics";
 
 export default defineNuxtPlugin(() => {
   Analytics.init({
-    appId: 'your-site-id',
-    endpoint: 'your-endpoint',
+    appId: "your-site-id",
+    endpoint: "your-endpoint",
     debug: true,
-    isSPA: true  // 必须设置为 true
-  })
+    isSPA: true, // 必须设置为 true
+  });
 
-  const router = useRouter()
+  const router = useRouter();
   router.afterEach((to) => {
-    Analytics.trackPageView(to.fullPath)
-  })
-})
+    Analytics.trackPageView(to.fullPath);
+  });
+});
 ```
 
 ### React Router
@@ -128,38 +131,38 @@ function App() {
 
 ```typescript
 // src/app/plugins/analytics.ts
-import Analytics from '@lkahung/web-analytics'
+import Analytics from "@lkahung/web-analytics";
 
 export const initAnalytics = () => {
   Analytics.init({
-    appId: 'your-site-id',
-    endpoint: 'your-endpoint',
+    appId: "your-site-id",
+    endpoint: "your-endpoint",
     debug: true,
-    isSPA: true
-  })
-}
+    isSPA: true,
+  });
+};
 
 // src/app/app.component.ts
-import { Component, OnInit } from '@angular/core'
-import { Router, NavigationEnd } from '@angular/router'
-import { filter } from 'rxjs/operators'
-import { initAnalytics } from './plugins/analytics'
+import { Component, OnInit } from "@angular/core";
+import { Router, NavigationEnd } from "@angular/router";
+import { filter } from "rxjs/operators";
+import { initAnalytics } from "./plugins/analytics";
 
 @Component({
-  selector: 'app-root',
-  template: '<router-outlet></router-outlet>'
+  selector: "app-root",
+  template: "<router-outlet></router-outlet>",
 })
 export class AppComponent implements OnInit {
   constructor(private router: Router) {
     // 初始化 SDK
-    initAnalytics()
+    initAnalytics();
 
     // 监听路由变化
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
-    ).subscribe((event: NavigationEnd) => {
-      Analytics.trackPageView(event.urlAfterRedirects)
-    })
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        Analytics.trackPageView(event.urlAfterRedirects);
+      });
   }
 }
 ```

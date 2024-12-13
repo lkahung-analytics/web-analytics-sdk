@@ -35,13 +35,14 @@
             // 生成访客ID
             this.visitorId = this.generateVisitorId();
 
+            this.session.startTime = new Date();
             // 设置页面追踪
             this.setupPageTracking();
 
             if (this.config.debug) {
                 console.log('Analytics initialized with config:', this.config);
             }
-            this.session.startTime = new Date();
+
             return this;
         },
 
@@ -99,8 +100,8 @@
 
         // 追踪页面访问
         trackPageView: function() {
-            const sessionDuration = new Date() - this.session.startTime;
-
+            const sessionDuration = Math.floor((new Date() - this.session.startTime) / 1000);
+            
             // 使用 sendBeacon 确保数据在页面卸载时能够发送
             const data = {
                 ...this.getBaseData(),
@@ -133,6 +134,10 @@
             if (!this.config.isSPA) {
                 window.addEventListener('beforeunload', () => {
                     this.trackPageView();
+                });
+            }else {
+                window.addEventListener('popstate', () => {
+                    this.session.startTime = new Date();
                 });
             }
         }
