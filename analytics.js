@@ -101,7 +101,7 @@
         // 追踪页面访问
         trackPageView: function() {
             const sessionDuration = Math.floor((new Date() - this.session.startTime) / 1000);
-            
+
             // 使用 sendBeacon 确保数据在页面卸载时能够发送
             const data = {
                 ...this.getBaseData(),
@@ -134,10 +134,6 @@
             if (!this.config.isSPA) {
                 window.addEventListener('beforeunload', () => {
                     this.trackPageView();
-                });
-            }else {
-                window.addEventListener('popstate', () => {
-                    this.session.startTime = new Date();
                 });
             }
         }
