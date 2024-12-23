@@ -1,13 +1,13 @@
 {
   "name": "@lkahung/web-analytics",
-  "version": "0.3.7",
+  "version": "0.4.13",
   "description": "Lightweight web analytics SDK for tracking website usage",
   "main": "analytics.js",
   "types": "analytics.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 0",
     "prepare": "npm run build",
-    "build": "echo \"Build script placeholder\""
+    "build": "echo \"No build required\""
   },
   "keywords": [
     "analytics",
@@ -31,5 +31,10 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "rollup": "^4.9.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-commonjs": "^25.0.7"
   }
 }

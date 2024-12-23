@@ -36,13 +36,17 @@
 
     <script src="analytics.js"></script>
     <script>
-      // 初始化 SDK
-      Analytics.init({
-        endpoint: "http://localhost:8080/collect",
-        appId: "test-app",
-        debug: true,
-        isSPA: false,
-      });
+      if (window.Analytics) {
+        window.Analytics.init({
+          endpoint: "http://localhost:8080/collect",
+          appId: "test-app",
+          routerMode: "history",
+          debug: true,
+          isSPA: false,
+        });
+      } else {
+        console.log("Analytics object is not loaded.");
+      }
 
       // 测试自定义事件
       document.getElementById("testEvent").addEventListener("click", () => {
