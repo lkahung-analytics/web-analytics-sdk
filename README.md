@@ -32,7 +32,8 @@ npm install @lkahung/web-analytics
   });
 
   // Track a custom event
-  Analytics.trackEvent("category", "action", "label", value);
+  // window.Analytics.trackEvent("用户交互", "点击", "购买按钮", "$123");
+  window.Analytics.trackEvent("category", "action", "label", "value");
 </script>
 ```
 
