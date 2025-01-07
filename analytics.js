@@ -140,8 +140,10 @@
 
       try {
         if (navigator.sendBeacon) {
+          this.logDebugInfo(`Events sendBeacon: ${JSON.stringify(events)}`);
           navigator.sendBeacon(this.config.endpoint, JSON.stringify(events));
         } else {
+          this.logDebugInfo(`Events fetch: ${JSON.stringify(events)}`);
           await fetch(this.config.endpoint, {
             method: "POST",
             body: JSON.stringify(events),
@@ -158,6 +160,7 @@
 
     // 页面离开追踪
     trackPageLeave: function () {
+      this.logDebugInfo("trackPageLeave");
       const duration = Math.floor((new Date() - this.session.startTime) / 1000);
 
       this.addToQueue({
@@ -185,10 +188,32 @@
 
     // 设置页面追踪
     setupPageTracking: function () {
-      // 原生 HTML 页面监听
-      window.addEventListener("beforeunload", () => {
-        this.trackPageLeave();
-      });
+      // 判断是否为移动设备
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      this.logDebugInfo(`isMobile: ${isMobile} - navigator.userAgent: ${navigator.userAgent}`);
+
+
+      if (isMobile) {
+        // 使用 pagehide 事件
+        window.addEventListener("pagehide", () => {
+          this.logDebugInfo("pagehide event triggered");
+          this.trackPageLeave();
+        });
+      } else {
+        // 原生 HTML 页面监听
+        window.addEventListener("beforeunload", () => {
+          this.logDebugInfo("beforeunload");
+          this.trackPageLeave();
+        });
+      }
+
+      // // 使用 visibilitychange 事件
+      // document.addEventListener("visibilitychange", () => {
+      //   if (document.visibilityState === "hidden") {
+      //     this.logDebugInfo("visibilitychange to hidden");
+      //     this.trackPageLeave();
+      //   }
+      // });
 
       // History API 监听
       if (this.config.autoTrackRouter && this.config.routerMode === "history") {
@@ -196,16 +221,19 @@
         const originalReplaceState = history.replaceState;
 
         history.pushState = (...args) => {
+          this.logDebugInfo("pushState event triggered");
           this.trackPageLeave();
           originalPushState.apply(history, args);
         };
 
         history.replaceState = (...args) => {
+          this.logDebugInfo("replaceState event triggered");
           this.trackPageLeave();
           originalReplaceState.apply(history, args);
         };
 
         window.addEventListener("popstate", () => {
+          this.logDebugInfo("popstate event triggered");
           this.trackPageLeave();
         });
       }
@@ -213,14 +241,22 @@
       // Hash 模式监听
       if (this.config.routerMode === "hash") {
         window.addEventListener("hashchange", () => {
+          this.logDebugInfo("hashchange event triggered");
           this.trackPageLeave();
         });
       }
     },
+
+    logDebugInfo: function (message) {
+      // 检查是否开启调试模式
+      if (this.config.debug) {
+        console.log(`[DEBUG] ${message}`);
+      }
+    }
   };
 
   // 为了兼容性，同时支持 window.Analytics 和 window.analytics
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     window.Analytics = Analytics;
     window.analytics = Analytics;
   }
