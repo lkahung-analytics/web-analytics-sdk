@@ -1,15 +1,15 @@
 (function (root, factory) {
-  if (typeof define === 'function' && define.amd) {
+  if (typeof define === "function" && define.amd) {
     // AMD
     define([], factory);
-  } else if (typeof module === 'object' && module.exports) {
+  } else if (typeof module === "object" && module.exports) {
     // CommonJS
     module.exports = factory();
   } else {
     // 浏览器全局变量
     root.Analytics = factory();
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== "undefined" ? self : this, function () {
   // Web Analytics SDK
   const Analytics = {
     // SDK配置
@@ -29,6 +29,7 @@
     session: {
       startTime: null,
       sessionId: null,
+      pageStartTime: null, // 添加页面开始时间戳
     },
 
     // 事件队列
@@ -58,8 +59,9 @@
       // 生成访客ID
       this.visitorId = this.generateVisitorId();
 
-      this.session.startTime = new Date();
+      this.session.startTime = Date.now();
       this.session.sessionId = this.generateSessionId();
+      this.session.pageStartTime = Date.now(); // 初始化页面开始时间
 
       // 设置页面追踪
       this.setupPageTracking();
@@ -67,6 +69,7 @@
       if (this.config.debug) {
         console.log("startTime:", this.session.startTime);
         console.log("sessionId:", this.session.sessionId);
+        console.log("pageStartTime:", this.session.pageStartTime);
         console.log("Analytics initialized with config:", this.config);
       }
 
@@ -160,8 +163,11 @@
 
     // 页面离开追踪
     trackPageLeave: function () {
-      this.logDebugInfo("trackPageLeave");
-      const duration = Math.floor((new Date() - this.session.startTime) / 1000);
+      const duration = Date.now() - (this.session.pageStartTime || this.session.startTime);// 计算页面停留时间，毫秒
+
+      this.logDebugInfo(
+        `trackPageLeave - duration:${duration} - pageStartTime:${this.session.pageStartTime} - startTime:${this.session.startTime}`
+      );
 
       this.addToQueue({
         event_type: "pageview",
@@ -170,6 +176,9 @@
         page_title: document.title,
         page_referrer: document.referrer,
       });
+
+      // 更新页面开始时间
+      this.session.pageStartTime = Date.now();
 
       // 确保数据发送
       this.flushQueue();
@@ -185,25 +194,50 @@
         value: value,
       });
     },
+    // 添加防抖计时器
+    lastTrackTime: 0,
+    minTrackInterval: 100, // 最小追踪间隔（毫秒）
 
+    // 添加防抖检查方法
+    shouldTrack: function () {
+      const now = Date.now();
+
+      this.logDebugInfo(
+        "shouldTrack",
+        now,
+        this.lastTrackTime,
+        this.minTrackInterval
+      );
+
+      if (now - this.lastTrackTime >= this.minTrackInterval) {
+        this.lastTrackTime = now;
+        return true;
+      }
+      return false;
+    },
     // 设置页面追踪
     setupPageTracking: function () {
       // 判断是否为移动设备
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      this.logDebugInfo(`isMobile: ${isMobile} - navigator.userAgent: ${navigator.userAgent}`);
-
+      this.logDebugInfo(
+        `isMobile: ${isMobile} - navigator.userAgent: ${navigator.userAgent}`
+      );
 
       if (isMobile) {
         // 使用 pagehide 事件
         window.addEventListener("pagehide", () => {
           this.logDebugInfo("pagehide event triggered");
-          this.trackPageLeave();
+          if (this.shouldTrack()) {
+            this.trackPageLeave();
+          }
         });
       } else {
         // 原生 HTML 页面监听
         window.addEventListener("beforeunload", () => {
           this.logDebugInfo("beforeunload");
-          this.trackPageLeave();
+          if (this.shouldTrack()) {
+            this.trackPageLeave();
+          }
         });
       }
 
@@ -222,19 +256,25 @@
 
         history.pushState = (...args) => {
           this.logDebugInfo("pushState event triggered");
-          this.trackPageLeave();
+          if (this.shouldTrack()) {
+            this.trackPageLeave();
+          }
           originalPushState.apply(history, args);
         };
 
         history.replaceState = (...args) => {
           this.logDebugInfo("replaceState event triggered");
-          this.trackPageLeave();
+          if (this.shouldTrack()) {
+            this.trackPageLeave();
+          }
           originalReplaceState.apply(history, args);
         };
 
         window.addEventListener("popstate", () => {
           this.logDebugInfo("popstate event triggered");
-          this.trackPageLeave();
+          if (this.shouldTrack()) {
+            this.trackPageLeave();
+          }
         });
       }
 
@@ -247,12 +287,12 @@
       }
     },
 
-    logDebugInfo: function (message) {
+    logDebugInfo: function (...messages) {
       // 检查是否开启调试模式
       if (this.config.debug) {
-        console.log(`[DEBUG] ${message}`);
+        console.log("[DEBUG]", ...messages);
       }
-    }
+    },
   };
 
   // 为了兼容性，同时支持 window.Analytics 和 window.analytics
@@ -262,4 +302,4 @@
   }
 
   return Analytics;
-}));
+});
