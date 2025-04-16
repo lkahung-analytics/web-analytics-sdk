@@ -32,6 +32,11 @@
       pageStartTime: null, // 添加页面开始时间戳
     },
 
+    // 当前页面地址
+    fullUrl: window.location.href,
+    // 来源页面
+    pageReferrer: document.referrer,
+
     // 事件队列
     eventQueue: [],
 
@@ -58,10 +63,10 @@
 
       // 生成访客ID
       this.visitorId = this.generateVisitorId();
-
       this.session.startTime = Date.now();
       this.session.sessionId = this.generateSessionId();
-      this.session.pageStartTime = Date.now(); // 初始化页面开始时间
+      // 初始化页面开始时间
+      this.session.pageStartTime = Date.now();
 
       // 设置页面追踪
       this.setupPageTracking();
@@ -163,7 +168,8 @@
 
     // 页面离开追踪
     trackPageLeave: function () {
-      const duration = Date.now() - (this.session.pageStartTime || this.session.startTime);// 计算页面停留时间，毫秒
+      const duration =
+        Date.now() - (this.session.pageStartTime || this.session.startTime); // 计算页面停留时间，毫秒
 
       this.logDebugInfo(
         `trackPageLeave - duration:${duration} - pageStartTime:${this.session.pageStartTime} - startTime:${this.session.startTime}`
@@ -172,9 +178,9 @@
       this.addToQueue({
         event_type: "pageview",
         session_duration: duration,
-        page_url: window.location.href,
+        page_url: this.fullUrl,
         page_title: document.title,
-        page_referrer: document.referrer,
+        page_referrer: this.pageReferrer,
       });
 
       // 更新页面开始时间
@@ -197,20 +203,36 @@
     // 添加防抖计时器
     lastTrackTime: 0,
     minTrackInterval: 100, // 最小追踪间隔（毫秒）
+    isRefreshing: false, // 添加刷新标志位
+    refreshDebounceTime: 500, // 刷新防抖时间（毫秒）
 
     // 添加防抖检查方法
     shouldTrack: function () {
       const now = Date.now();
 
       this.logDebugInfo(
-        "shouldTrack",
+        "shouldTrack:",
         now,
         this.lastTrackTime,
-        this.minTrackInterval
+        this.minTrackInterval,
+        "isRefreshing:",
+        this.isRefreshing
       );
+
+      // 如果正在刷新中，不再触发追踪
+      if (this.isRefreshing) {
+        return false;
+      }
 
       if (now - this.lastTrackTime >= this.minTrackInterval) {
         this.lastTrackTime = now;
+
+        // 设置刷新标志，防止短时间内重复触发
+        this.isRefreshing = true;
+        setTimeout(() => {
+          this.isRefreshing = false;
+        }, this.refreshDebounceTime);
+
         return true;
       }
       return false;
@@ -241,33 +263,20 @@
         });
       }
 
-      // // 使用 visibilitychange 事件
-      // document.addEventListener("visibilitychange", () => {
-      //   if (document.visibilityState === "hidden") {
-      //     this.logDebugInfo("visibilitychange to hidden");
-      //     this.trackPageLeave();
-      //   }
-      // });
-
       // History API 监听
       if (this.config.autoTrackRouter && this.config.routerMode === "history") {
         const originalPushState = history.pushState;
-        const originalReplaceState = history.replaceState;
 
         history.pushState = (...args) => {
           this.logDebugInfo("pushState event triggered");
+
+          this.pageReferrer = this.fullUrl;
+          this.fullUrl = window.location.href;
+
           if (this.shouldTrack()) {
             this.trackPageLeave();
           }
           originalPushState.apply(history, args);
-        };
-
-        history.replaceState = (...args) => {
-          this.logDebugInfo("replaceState event triggered");
-          if (this.shouldTrack()) {
-            this.trackPageLeave();
-          }
-          originalReplaceState.apply(history, args);
         };
 
         window.addEventListener("popstate", () => {
