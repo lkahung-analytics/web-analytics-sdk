@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Analytics SDK 综合测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+        .test-button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #005a87;
+        }
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .timer-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007cba;
+            margin: 10px 0;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Web Analytics SDK 综合测试</h1>
+
+    <div class="info-box">
+        <h3>测试环境信息</h3>
+        <p><strong>当前时区:</strong> <span id="timezone"></span></p>
+        <p><strong>时区偏移:</strong> <span id="timezone-offset"></span> 分钟</p>
+        <p><strong>当前时间:</strong> <span id="current-time"></span></p>
+        <p><strong>UTC时间:</strong> <span id="utc-time"></span></p>
+        <p><strong>用户代理:</strong> <span id="user-agent"></span></p>
+    </div>
+
+    <div class="grid">
+        <div>
+            <!-- 基础功能测试 -->
+            <div class="test-section">
+                <h2>📊 基础功能测试</h2>
+                <button class="test-button" onclick="testBasicTracking()">初始化SDK</button>
+                <button class="test-button" onclick="testPageView()">触发页面访问</button>
+                <button class="test-button" onclick="testCustomEvent()">发送自定义事件</button>
+                <button class="test-button" onclick="testBatchFlush()">强制发送队列</button>
+                <div class="info-box">
+                    <strong>初始化状态:</strong> <span id="init-status">未初始化</span>
+                </div>
+            </div>
+
+            <!-- 时区测试 -->
+            <div class="test-section">
+                <h2>🌍 时区准确性测试</h2>
+                <button class="test-button" onclick="testTimezoneAccuracy()">测试时区处理</button>
+                <button class="test-button" onclick="simulateDifferentTimezone()">模拟不同时区</button>
+                <div id="timezone-test-results"></div>
+            </div>
+
+            <!-- 页面停留时间测试 -->
+            <div class="test-section">
+                <h2>⏱️ 页面停留时间测试</h2>
+                <div class="timer-display" id="dwell-timer">00:00</div>
+                <button class="test-button" onclick="startDwellTest()">开始停留计时</button>
+                <button class="test-button" onclick="simulatePageLeave()">模拟页面离开</button>
+                <button class="test-button" onclick="simulateRouterChange()">模拟路由跳转</button>
+                <div class="info-box">
+                    <strong>测试开始时间:</strong> <span id="test-start-time">-</span><br>
+                    <strong>预期停留时间:</strong> <span id="expected-duration">-</span><br>
+                    <strong>实际记录时间:</strong> <span id="recorded-duration">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <!-- 边界情况测试 -->
+            <div class="test-section">
+                <h2>🔍 边界情况测试</h2>
+                <button class="test-button" onclick="testRapidClicks()">快速点击防抖</button>
+                <button class="test-button" onclick="testLongDwellTime()">超长停留时间</button>
+                <button class="test-button" onclick="testNegativeDuration()">负数时长处理</button>
+                <button class="test-button" onclick="testMobileEvents()">移动端事件模拟</button>
+            </div>
+
+            <!-- 网络和性能测试 -->
+            <div class="test-section">
+                <h2>🌐 网络和性能测试</h2>
+                <button class="test-button" onclick="testBatchSize()">批量发送测试</button>
+                <button class="test-button" onclick="testNetworkFailure()">网络失败模拟</button>
+                <button class="test-button" onclick="testSendBeacon()">SendBeacon测试</button>
+                <div class="info-box">
+                    <strong>队列长度:</strong> <span id="queue-length">0</span><br>
+                    <strong>发送方式:</strong> <span id="send-method">-</span>
+                </div>
+            </div>
+
+            <!-- 调试和监控 -->
+            <div class="test-section">
+                <h2>🔧 调试工具</h2>
+                <button class="test-button" onclick="toggleDebugMode()">切换调试模式</button>
+                <button class="test-button" onclick="clearLogs()">清空日志</button>
+                <button class="test-button" onclick="exportTestData()">导出测试数据</button>
+                <button class="test-button" onclick="resetSDK()">重置SDK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实时日志显示 -->
+    <div class="test-section">
+        <h2>📋 实时日志</h2>
+        <div class="log-container" id="log-container"></div>
+    </div>
+
+    <!-- SDK 脚本 -->
+    <script src="./analytics.js"></script>
+
+    <script>
+        // 全局测试变量
+        let testStartTime = null;
+        let dwellTestTimer = null;
+        let testData = [];
+
+        // 初始化页面信息
+        function initPageInfo() {
+            const now = new Date();
+            document.getElementById('timezone').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            document.getElementById('timezone-offset').textContent = now.getTimezoneOffset();
+            document.getElementById('current-time').textContent = now.toLocaleString();
+            document.getElementById('utc-time').textContent = now.toISOString();
+            document.getElementById('user-agent').textContent = navigator.userAgent.substring(0, 100) + '...';
+        }
+
+        // 自定义日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logContainer = document.getElementById('log-container');
+            const color = type === 'error' ? '#ff6b6b' : type === 'warning' ? '#ffd93d' : '#00ff00';
+            
+            logContainer.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 保存到测试数据
+            testData.push({
+                timestamp: timestamp,
+                type: type,
+                message: message
+            });
+        }
+
+        // 重写console.log以捕获SDK日志
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            if (args[0] && args[0].includes('[DEBUG]')) {
+                log('SDK调试: ' + args.slice(1).join(' '), 'info');
+            }
+            originalConsoleLog.apply(console, args);
+        };
+
+        // 基础功能测试
+        function testBasicTracking() {
+            try {
+                window.Analytics.init({
+                    appId: 'test-app-001',
+                    endpoint: 'http://localhost:8080/collect',
+                    debug: true,
+                    isSPA: true,
+                    uploadType: 'batch',
+                    batchSize: 5
+                });
+                
+                document.getElementById('init-status').textContent = '已初始化';
+                log('✅ SDK初始化成功');
+                updateQueueInfo();
+            } catch (error) {
+                log('❌ SDK初始化失败: ' + error.message, 'error');
+            }
+        }
+
+        function testPageView() {
+            try {
+                // 手动触发页面离开事件
+                window.Analytics.trackPageLeave();
+                log('✅ 页面访问事件已发送');
+                updateQueueInfo();
+            } catch (error) {
+                log('❌ 页面访问事件发送失败: ' + error.message, 'error');
+            }
+        }
+
+        function testCustomEvent() {
+            try {
+                window.Analytics.trackEvent('测试', '按钮点击', '自定义事件测试', 1);
+                log('✅ 自定义事件已发送: 测试-按钮点击');
+                updateQueueInfo();
+            } catch (error) {
+                log('❌ 自定义事件发送失败: ' + error.message, 'error');
+            }
+        }
+
+        function testBatchFlush() {
+            try {
+                window.Analytics.flushQueue();
+                log('✅ 强制发送队列完成');
+                updateQueueInfo();
+            } catch (error) {
+                log('❌ 强制发送失败: ' + error.message, 'error');
+            }
+        }
+
+        // 时区测试
+        function testTimezoneAccuracy() {
+            const now = new Date();
+            const localTime = now.toString();
+            const utcTime = now.toISOString();
+            const offset = now.getTimezoneOffset();
+            
+            log(`🌍 本地时间: ${localTime}`);
+            log(`🌍 UTC时间: ${utcTime}`);
+            log(`🌍 时区偏移: ${offset} 分钟`);
+            
+            // 测试SDK的时区处理
+            const baseData = window.Analytics.getBaseData();
+            log(`🌍 SDK时间戳: ${baseData.timestamp}`);
+            log(`🌍 SDK时区偏移: ${baseData.timezone_offset}`);
+            
+            const results = document.getElementById('timezone-test-results');
+            results.innerHTML = `
+                <div class="info-box">
+                    <strong>时区测试结果:</strong><br>
+                    本地时区偏移: ${offset} 分钟<br>
+                    SDK记录偏移: ${baseData.timezone_offset} 分钟<br>
+                    一致性: ${offset === baseData.timezone_offset ? '✅ 通过' : '❌ 失败'}
+                </div>
+            `;
+        }
+
+        function simulateDifferentTimezone() {
+            // 模拟不同时区的时间戳
+            const timezones = [
+                { name: 'UTC+8 (北京)', offset: -480 },
+                { name: 'UTC+0 (伦敦)', offset: 0 },
+                { name: 'UTC-5 (纽约)', offset: 300 },
+                { name: 'UTC+9 (东京)', offset: -540 }
+            ];
+            
+            timezones.forEach(tz => {
+                const simulatedTime = new Date(Date.now() - tz.offset * 60000);
+                log(`🌏 模拟${tz.name}: ${simulatedTime.toISOString()}`);
+            });
+        }
+
+        // 页面停留时间测试
+        function startDwellTest() {
+            testStartTime = Date.now();
+            document.getElementById('test-start-time').textContent = new Date(testStartTime).toLocaleTimeString();
+            
+            // 重置页面开始时间
+            window.Analytics.session.pageStartTime = testStartTime;
+            
+            // 开始计时显示
+            dwellTestTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('dwell-timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+            
+            log('⏱️ 开始页面停留时间测试');
+        }
+
+        function simulatePageLeave() {
+            if (!testStartTime) {
+                log('❌ 请先开始停留计时测试', 'warning');
+                return;
+            }
+            
+            const expectedDuration = Date.now() - testStartTime;
+            document.getElementById('expected-duration').textContent = `${Math.floor(expectedDuration / 1000)} 秒`;
+            
+            // 触发页面离开
+            window.Analytics.trackPageLeave();
+            
+            // 检查最后发送的事件
+            setTimeout(() => {
+                const queue = window.Analytics.eventQueue;
+                if (queue.length > 0) {
+                    const lastEvent = queue[queue.length - 1];
+                    if (lastEvent.session_duration) {
+                        const recordedSeconds = Math.floor(lastEvent.session_duration / 1000);
+                        document.getElementById('recorded-duration').textContent = `${recordedSeconds} 秒`;
+                        
+                        const accuracy = Math.abs(expectedDuration - lastEvent.session_duration);
+                        const accuracyPercent = (1 - accuracy / expectedDuration) * 100;
+                        
+                        log(`⏱️ 预期停留: ${Math.floor(expectedDuration / 1000)}秒`);
+                        log(`⏱️ 实际记录: ${recordedSeconds}秒`);
+                        log(`⏱️ 准确度: ${accuracyPercent.toFixed(2)}%`);
+                    }
+                }
+            }, 100);
+            
+            clearInterval(dwellTestTimer);
+            log('✅ 页面离开事件已触发');
+        }
+
+        function simulateRouterChange() {
+            // 模拟路由变化
+            history.pushState({}, '', '/test-page-' + Date.now());
+            log('🔄 模拟路由跳转: ' + window.location.pathname);
+        }
+
+        // 边界情况测试
+        function testRapidClicks() {
+            log('🔄 开始快速点击测试...');
+            let clickCount = 0;
+            
+            const rapidTest = setInterval(() => {
+                window.Analytics.trackEvent('快速点击', '测试', `点击${++clickCount}`, clickCount);
+                log(`点击 ${clickCount}`);
+                
+                if (clickCount >= 10) {
+                    clearInterval(rapidTest);
+                    log('✅ 快速点击测试完成，检查防抖效果');
+                    updateQueueInfo();
+                }
+            }, 50); // 每50ms一次点击
+        }
+
+        function testLongDwellTime() {
+            // 模拟超长停留时间（25小时）
+            const longDuration = 25 * 60 * 60 * 1000;
+            const oldPageStartTime = window.Analytics.session.pageStartTime;
+            
+            window.Analytics.session.pageStartTime = Date.now() - longDuration;
+            window.Analytics.trackPageLeave();
+            
+            // 恢复正常时间
+            window.Analytics.session.pageStartTime = oldPageStartTime;
+            
+            log('⏱️ 测试超长停留时间（25小时），应被限制在24小时内');
+        }
+
+        function testNegativeDuration() {
+            // 模拟负数时长
+            const futureTime = Date.now() + 10000;
+            window.Analytics.session.pageStartTime = futureTime;
+            window.Analytics.trackPageLeave();
+            
+            log('⏱️ 测试负数时长，应被处理为0');
+        }
+
+        function testMobileEvents() {
+            // 检测是否为移动设备
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            log(`📱 当前设备类型: ${isMobile ? '移动设备' : '桌面设备'}`);
+            
+            if (!isMobile) {
+                // 在桌面环境模拟移动端事件
+                const event = new Event('pagehide');
+                window.dispatchEvent(event);
+                log('📱 模拟移动端pagehide事件');
+            }
+        }
+
+        // 网络和性能测试
+        function testBatchSize() {
+            log('📦 测试批量发送...');
+            
+            // 发送多个事件测试批量处理
+            for (let i = 1; i <= 8; i++) {
+                window.Analytics.trackEvent('批量测试', '事件', `第${i}个事件`, i);
+            }
+            
+            log('📦 已发送8个事件，批量大小为5，应触发自动发送');
+            updateQueueInfo();
+        }
+
+        function testNetworkFailure() {
+            // 暂时修改endpoint来模拟网络失败
+            const originalEndpoint = window.Analytics.config.endpoint;
+            window.Analytics.config.endpoint = 'http://invalid-url:9999/collect';
+            
+            window.Analytics.trackEvent('网络测试', '失败模拟', '测试网络失败处理', 1);
+            window.Analytics.flushQueue();
+            
+            log('🌐 模拟网络失败，事件应重新入队', 'warning');
+            
+            // 恢复原始endpoint
+            setTimeout(() => {
+                window.Analytics.config.endpoint = originalEndpoint;
+                log('🌐 恢复正常网络配置');
+            }, 2000);
+        }
+
+        function testSendBeacon() {
+            const hasBeacon = 'sendBeacon' in navigator;
+            document.getElementById('send-method').textContent = hasBeacon ? 'SendBeacon' : 'Fetch';
+            
+            log(`🚀 浏览器支持SendBeacon: ${hasBeacon ? '是' : '否'}`);
+            
+            if (hasBeacon) {
+                window.Analytics.trackEvent('SendBeacon', '测试', 'Beacon发送测试', 1);
+                window.Analytics.flushQueue();
+            }
+        }
+
+        // 调试工具
+        function toggleDebugMode() {
+            window.Analytics.config.debug = !window.Analytics.config.debug;
+            log(`🔧 调试模式: ${window.Analytics.config.debug ? '开启' : '关闭'}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '';
+            testData = [];
+            log('🧹 日志已清空');
+        }
+
+        function exportTestData() {
+            const data = {
+                testInfo: {
+                    timestamp: new Date().toISOString(),
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    userAgent: navigator.userAgent
+                },
+                logs: testData,
+                sdkConfig: window.Analytics.config,
+                queueState: window.Analytics.eventQueue
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sdk-test-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            log('📤 测试数据已导出');
+        }
+
+        function resetSDK() {
+            // 清空队列
+            window.Analytics.eventQueue = [];
+            
+            // 重置会话
+            window.Analytics.session.pageStartTime = Date.now();
+            
+            log('🔄 SDK已重置');
+            updateQueueInfo();
+        }
+
+        // 辅助函数
+        function updateQueueInfo() {
+            const queueLength = window.Analytics.eventQueue.length;
+            document.getElementById('queue-length').textContent = queueLength;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initPageInfo();
+            log('🎉 SDK测试页面加载完成');
+            log('💡 提示: 先点击"初始化SDK"开始测试');
+            
+            // 定时更新时间显示
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('current-time').textContent = now.toLocaleString();
+                document.getElementById('utc-time').textContent = now.toISOString();
+            }, 1000);
+        });
+
+        // 页面卸载时的测试
+        window.addEventListener('beforeunload', function() {
+            log('👋 页面即将卸载，触发beforeunload事件');
+        });
+
+        window.addEventListener('pagehide', function() {
+            log('👋 页面隐藏，触发pagehide事件');
+        });
+    </script>
+</body>
+</html>

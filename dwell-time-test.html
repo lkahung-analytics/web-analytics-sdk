@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面停留时间精确测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .timer {
+            font-size: 48px;
+            font-weight: bold;
+            color: #007cba;
+            text-align: center;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .small-timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #005a87; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-success { background: #28a745; }
+        .btn-warning { background: #ffc107; color: #000; }
+        .btn-danger { background: #dc3545; }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .result-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .accuracy-good { color: #28a745; font-weight: bold; }
+        .accuracy-warning { color: #ffc107; font-weight: bold; }
+        .accuracy-bad { color: #dc3545; font-weight: bold; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status-danger { background: #f8d7da; color: #721c24; border: 1px solid #f1c2c7; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .timer { font-size: 36px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>⏱️ 页面停留时间精确测试</h1>
+
+    <div class="status status-warning" id="sdk-status">
+        SDK状态: 未初始化
+    </div>
+
+    <!-- 主要计时器 -->
+    <div class="test-card">
+        <h2>🎯 主计时器</h2>
+        <div class="timer" id="main-timer">00:00:00</div>
+        <div style="text-align: center;">
+            <button class="btn" onclick="initializeSDK()">初始化SDK</button>
+            <button class="btn btn-success" onclick="startMainTest()" id="start-btn">开始测试</button>
+            <button class="btn btn-warning" onclick="pauseTest()" id="pause-btn" disabled>暂停</button>
+            <button class="btn btn-danger" onclick="stopTest()" id="stop-btn" disabled>停止并记录</button>
+        </div>
+        <div class="status" id="test-status">
+            点击"开始测试"开始计时
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- 自动化测试 -->
+        <div class="test-card">
+            <h3>🤖 自动化精度测试</h3>
+            <div>
+                <label>测试时长 (秒): <input type="number" id="auto-duration" value="5" min="1" max="60"></label>
+            </div>
+            <div>
+                <label>测试次数: <input type="number" id="test-count" value="3" min="1" max="10"></label>
+            </div>
+            <button class="btn" onclick="runAutomatedTests()">运行自动测试</button>
+            <div class="small-timer" id="auto-timer">待开始</div>
+            <div id="auto-progress"></div>
+        </div>
+
+        <!-- 边界情况测试 -->
+        <div class="test-card">
+            <h3>🔍 边界情况测试</h3>
+            <button class="btn" onclick="testShortDuration()">超短时长 (100ms)</button>
+            <button class="btn" onclick="testLongDuration()">超长时长 (模拟)</button>
+            <button class="btn" onclick="testNegativeDuration()">负数时长</button>
+            <button class="btn" onclick="testZeroDuration()">零时长</button>
+            <button class="btn" onclick="testRapidToggle()">快速切换</button>
+        </div>
+    </div>
+
+    <!-- 测试结果 -->
+    <div class="test-card">
+        <h2>📊 测试结果</h2>
+        <table class="result-table" id="results-table">
+            <thead>
+                <tr>
+                    <th>测试类型</th>
+                    <th>预期时长</th>
+                    <th>实际时长</th>
+                    <th>SDK记录</th>
+                    <th>误差</th>
+                    <th>准确度</th>
+                    <th>时间戳</th>
+                </tr>
+            </thead>
+            <tbody id="results-body">
+            </tbody>
+        </table>
+        <div style="margin-top: 15px;">
+            <button class="btn" onclick="clearResults()">清空结果</button>
+            <button class="btn" onclick="exportResults()">导出数据</button>
+            <button class="btn" onclick="showStatistics()">显示统计</button>
+        </div>
+    </div>
+
+    <!-- 实时日志 -->
+    <div class="test-card">
+        <h3>📝 实时日志</h3>
+        <button class="btn" onclick="clearLog()">清空日志</button>
+        <div class="log" id="log-container"></div>
+    </div>
+
+    <script src="./analytics.js"></script>
+    <script>
+        // 全局变量
+        let testStartTime = null;
+        let testTimer = null;
+        let isPaused = false;
+        let pausedDuration = 0;
+        let testResults = [];
+        let autoTestRunning = false;
+        let sdkInitialized = false;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('log-container');
+            const colors = {
+                info: '#333',
+                success: '#28a745',
+                warning: '#ffc107',
+                error: '#dc3545'
+            };
+            
+            logContainer.innerHTML += `<div style="color: ${colors[type]}">[${timestamp}] ${message}</div>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 初始化SDK
+        function initializeSDK() {
+            try {
+                if (typeof Analytics === 'undefined') {
+                    throw new Error('Analytics SDK 未加载');
+                }
+
+                Analytics.init({
+                    appId: 'dwell-time-test',
+                    endpoint: 'http://localhost:8080/collect',
+                    debug: true,
+                    isSPA: true,
+                    uploadType: 'batch'
+                });
+
+                sdkInitialized = true;
+                document.getElementById('sdk-status').className = 'status status-success';
+                document.getElementById('sdk-status').textContent = 'SDK状态: 已初始化并启用调试模式';
+                log('✅ SDK初始化成功', 'success');
+            } catch (error) {
+                document.getElementById('sdk-status').className = 'status status-danger';
+                document.getElementById('sdk-status').textContent = 'SDK状态: 初始化失败 - ' + error.message;
+                log('❌ SDK初始化失败: ' + error.message, 'error');
+            }
+        }
+
+        // 格式化时间显示
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const ms = milliseconds % 1000;
+            
+            if (hours > 0) {
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${Math.floor(ms/100)}`;
+            }
+        }
+
+        // 开始主测试
+        function startMainTest() {
+            if (!sdkInitialized) {
+                alert('请先初始化SDK');
+                return;
+            }
+
+            testStartTime = Date.now();
+            pausedDuration = 0;
+            isPaused = false;
+
+            // 设置SDK的页面开始时间
+            Analytics.session.pageStartTime = testStartTime;
+
+            // 开始计时器
+            testTimer = setInterval(updateTimer, 100);
+
+            // 更新按钮状态
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = false;
+            
+            document.getElementById('test-status').className = 'status status-success';
+            document.getElementById('test-status').textContent = '测试进行中...';
+
+            log('🚀 开始主测试计时', 'success');
+        }
+
+        // 更新计时器显示
+        function updateTimer() {
+            if (!isPaused && testStartTime) {
+                const elapsed = Date.now() - testStartTime - pausedDuration;
+                document.getElementById('main-timer').textContent = formatTime(elapsed);
+            }
+        }
+
+        // 暂停测试
+        function pauseTest() {
+            if (isPaused) {
+                // 恢复
+                const pauseStart = Date.now();
+                isPaused = false;
+                testTimer = setInterval(updateTimer, 100);
+                document.getElementById('pause-btn').textContent = '暂停';
+                document.getElementById('test-status').textContent = '测试进行中...';
+                log('▶️ 测试已恢复', 'info');
+            } else {
+                // 暂停
+                isPaused = true;
+                clearInterval(testTimer);
+                document.getElementById('pause-btn').textContent = '恢复';
+                document.getElementById('test-status').textContent = '测试已暂停';
+                log('⏸️ 测试已暂停', 'warning');
+            }
+        }
+
+        // 停止测试并记录结果
+        function stopTest() {
+            if (!testStartTime) return;
+
+            const actualDuration = Date.now() - testStartTime - pausedDuration;
+            
+            // 触发SDK记录
+            Analytics.trackPageLeave();
+
+            // 获取SDK记录的时长
+            setTimeout(() => {
+                const queue = Analytics.eventQueue;
+                let sdkDuration = null;
+                
+                for (const event of queue) {
+                    if (event.session_duration !== undefined) {
+                        sdkDuration = event.session_duration;
+                        break;
+                    }
+                }
+
+                // 记录结果
+                recordTestResult('手动测试', actualDuration, sdkDuration, actualDuration);
+
+                // 重置状态
+                resetTest();
+                log(`✅ 测试完成 - 实际: ${Math.floor(actualDuration/1000)}s, SDK: ${sdkDuration ? Math.floor(sdkDuration/1000) + 's' : '未记录'}`, 'success');
+            }, 100);
+        }
+
+        // 重置测试状态
+        function resetTest() {
+            clearInterval(testTimer);
+            testStartTime = null;
+            isPaused = false;
+            pausedDuration = 0;
+
+            document.getElementById('main-timer').textContent = '00:00:00';
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            document.getElementById('pause-btn').textContent = '暂停';
+            document.getElementById('stop-btn').disabled = true;
+            
+            document.getElementById('test-status').className = 'status';
+            document.getElementById('test-status').textContent = '点击"开始测试"开始计时';
+        }
+
+        // 自动化测试
+        async function runAutomatedTests() {
+            if (!sdkInitialized) {
+                alert('请先初始化SDK');
+                return;
+            }
+
+            if (autoTestRunning) {
+                log('❌ 自动测试正在进行中', 'warning');
+                return;
+            }
+
+            const duration = parseInt(document.getElementById('auto-duration').value) * 1000;
+            const count = parseInt(document.getElementById('test-count').value);
+            
+            autoTestRunning = true;
+            log(`🤖 开始自动化测试: ${count}次, 每次${duration/1000}秒`, 'info');
+
+            for (let i = 1; i <= count; i++) {
+                document.getElementById('auto-progress').textContent = `测试进度: ${i}/${count}`;
+                
+                await runSingleAutoTest(duration, i);
+                
+                if (i < count) {
+                    // 测试间隔
+                    await sleep(1000);
+                }
+            }
+
+            autoTestRunning = false;
+            document.getElementById('auto-timer').textContent = '测试完成';
+            document.getElementById('auto-progress').textContent = '';
+            log('✅ 自动化测试全部完成', 'success');
+        }
+
+        // 单次自动测试
+        function runSingleAutoTest(duration, testNumber) {
+            return new Promise((resolve) => {
+                const startTime = Date.now();
+                Analytics.session.pageStartTime = startTime;
+
+                // 更新显示
+                let elapsed = 0;
+                const displayTimer = setInterval(() => {
+                    elapsed = Date.now() - startTime;
+                    document.getElementById('auto-timer').textContent = formatTime(elapsed);
+                }, 100);
+
+                setTimeout(() => {
+                    clearInterval(displayTimer);
+                    const actualDuration = Date.now() - startTime;
+                    
+                    // 触发SDK记录
+                    Analytics.trackPageLeave();
+
+                    // 获取结果
+                    setTimeout(() => {
+                        const queue = Analytics.eventQueue;
+                        let sdkDuration = null;
+                        
+                        for (const event of queue.slice(-1)) { // 获取最后一个事件
+                            if (event.session_duration !== undefined) {
+                                sdkDuration = event.session_duration;
+                                break;
+                            }
+                        }
+
+                        recordTestResult(`自动测试${testNumber}`, duration, sdkDuration, actualDuration);
+                        resolve();
+                    }, 100);
+                }, duration);
+            });
+        }
+
+        // 边界情况测试
+        function testShortDuration() {
+            if (!sdkInitialized) return;
+            
+            const startTime = Date.now();
+            Analytics.session.pageStartTime = startTime;
+            
+            setTimeout(() => {
+                const actualDuration = Date.now() - startTime;
+                Analytics.trackPageLeave();
+                
+                setTimeout(() => {
+                    const queue = Analytics.eventQueue;
+                    let sdkDuration = null;
+                    for (const event of queue.slice(-1)) {
+                        if (event.session_duration !== undefined) {
+                            sdkDuration = event.session_duration;
+                            break;
+                        }
+                    }
+                    recordTestResult('超短时长', 100, sdkDuration, actualDuration);
+                    log('⚡ 超短时长测试完成', 'info');
+                }, 50);
+            }, 100);
+        }
+
+        function testLongDuration() {
+            if (!sdkInitialized) return;
+            
+            // 模拟25小时前开始
+            const longAgo = Date.now() - (25 * 60 * 60 * 1000);
+            Analytics.session.pageStartTime = longAgo;
+            Analytics.trackPageLeave();
+            
+            setTimeout(() => {
+                const queue = Analytics.eventQueue;
+                let sdkDuration = null;
+                for (const event of queue.slice(-1)) {
+                    if (event.session_duration !== undefined) {
+                        sdkDuration = event.session_duration;
+                        break;
+                    }
+                }
+                recordTestResult('超长时长', 25 * 60 * 60 * 1000, sdkDuration, 25 * 60 * 60 * 1000);
+                log('🕒 超长时长测试完成（应被限制在24小时）', 'info');
+            }, 50);
+        }
+
+        function testNegativeDuration() {
+            if (!sdkInitialized) return;
+            
+            // 设置未来时间
+            const futureTime = Date.now() + 10000;
+            Analytics.session.pageStartTime = futureTime;
+            Analytics.trackPageLeave();
+            
+            setTimeout(() => {
+                const queue = Analytics.eventQueue;
+                let sdkDuration = null;
+                for (const event of queue.slice(-1)) {
+                    if (event.session_duration !== undefined) {
+                        sdkDuration = event.session_duration;
+                        break;
+                    }
+                }
+                recordTestResult('负数时长', 0, sdkDuration, -10000);
+                log('➖ 负数时长测试完成（应被处理为0）', 'info');
+            }, 50);
+        }
+
+        function testZeroDuration() {
+            if (!sdkInitialized) return;
+            
+            const now = Date.now();
+            Analytics.session.pageStartTime = now;
+            Analytics.trackPageLeave();
+            
+            setTimeout(() => {
+                const queue = Analytics.eventQueue;
+                let sdkDuration = null;
+                for (const event of queue.slice(-1)) {
+                    if (event.session_duration !== undefined) {
+                        sdkDuration = event.session_duration;
+                        break;
+                    }
+                }
+                recordTestResult('零时长', 0, sdkDuration, 0);
+                log('0️⃣ 零时长测试完成', 'info');
+            }, 50);
+        }
+
+        function testRapidToggle() {
+            if (!sdkInitialized) return;
+            
+            log('🔄 开始快速切换测试...', 'info');
+            let count = 0;
+            const interval = setInterval(() => {
+                Analytics.session.pageStartTime = Date.now();
+                Analytics.trackPageLeave();
+                count++;
+                
+                if (count >= 5) {
+                    clearInterval(interval);
+                    log('✅ 快速切换测试完成，检查防抖效果', 'success');
+                }
+            }, 50);
+        }
+
+        // 记录测试结果
+        function recordTestResult(testType, expectedDuration, sdkDuration, actualDuration) {
+            const error = sdkDuration !== null ? Math.abs(sdkDuration - actualDuration) : null;
+            const accuracy = error !== null ? Math.max(0, (1 - error / Math.max(actualDuration, expectedDuration)) * 100) : null;
+            
+            const result = {
+                testType,
+                expectedDuration,
+                actualDuration,
+                sdkDuration,
+                error,
+                accuracy,
+                timestamp: new Date().toISOString()
+            };
+
+            testResults.push(result);
+            updateResultsTable();
+        }
+
+        // 更新结果表格
+        function updateResultsTable() {
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = '';
+
+            testResults.forEach(result => {
+                const row = tbody.insertRow();
+                
+                const accuracyClass = result.accuracy !== null ? 
+                    (result.accuracy >= 95 ? 'accuracy-good' : 
+                     result.accuracy >= 80 ? 'accuracy-warning' : 'accuracy-bad') : '';
+
+                row.innerHTML = `
+                    <td>${result.testType}</td>
+                    <td>${result.expectedDuration ? Math.floor(result.expectedDuration / 1000) + 's' : '-'}</td>
+                    <td>${Math.floor(result.actualDuration / 1000)}s</td>
+                    <td>${result.sdkDuration !== null ? Math.floor(result.sdkDuration / 1000) + 's' : '未记录'}</td>
+                    <td>${result.error !== null ? Math.floor(result.error) + 'ms' : '-'}</td>
+                    <td class="${accuracyClass}">${result.accuracy !== null ? result.accuracy.toFixed(1) + '%' : '-'}</td>
+                    <td>${new Date(result.timestamp).toLocaleTimeString()}</td>
+                `;
+            });
+        }
+
+        // 辅助函数
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function clearResults() {
+            testResults = [];
+            updateResultsTable();
+            log('🧹 测试结果已清空', 'info');
+        }
+
+        function clearLog() {
+            document.getElementById('log-container').innerHTML = '';
+        }
+
+        function exportResults() {
+            const data = {
+                summary: {
+                    totalTests: testResults.length,
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                results: testResults
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dwell-time-test-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            log('📤 测试数据已导出', 'success');
+        }
+
+        function showStatistics() {
+            if (testResults.length === 0) {
+                alert('暂无测试数据');
+                return;
+            }
+
+            const validResults = testResults.filter(r => r.accuracy !== null);
+            if (validResults.length === 0) {
+                alert('暂无有效的准确度数据');
+                return;
+            }
+
+            const avgAccuracy = validResults.reduce((sum, r) => sum + r.accuracy, 0) / validResults.length;
+            const minAccuracy = Math.min(...validResults.map(r => r.accuracy));
+            const maxAccuracy = Math.max(...validResults.map(r => r.accuracy));
+            const avgError = validResults.reduce((sum, r) => sum + r.error, 0) / validResults.length;
+
+            alert(`测试统计信息：
+总测试数: ${testResults.length}
+有效测试: ${validResults.length}
+平均准确度: ${avgAccuracy.toFixed(2)}%
+最低准确度: ${minAccuracy.toFixed(2)}%
+最高准确度: ${maxAccuracy.toFixed(2)}%
+平均误差: ${Math.floor(avgError)}ms`);
+        }
+
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            log('⏱️ 页面停留时间测试页面加载完成', 'success');
+            log('💡 请先点击"初始化SDK"开始测试', 'info');
+        });
+    </script>
+</body>
+</html>

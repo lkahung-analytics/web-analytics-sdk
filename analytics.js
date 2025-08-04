@@ -114,6 +114,7 @@
         viewport_height: document.documentElement.clientHeight,
         user_agent: navigator.userAgent,
         timestamp: new Date().toISOString(),
+        // timezone_offset: new Date().getTimezoneOffset(), // 添加时区偏移信息（分钟）
         session_id: this.session.sessionId,
         visitor_id: this.visitorId,
       };
@@ -168,23 +169,28 @@
 
     // 页面离开追踪
     trackPageLeave: function () {
-      const duration =
-        Date.now() - (this.session.pageStartTime || this.session.startTime); // 计算页面停留时间，毫秒
+      // 使用UTC时间戳确保时区一致性
+      const currentTime = Date.now();
+      const pageStartTime = this.session.pageStartTime || this.session.startTime;
+      const duration = currentTime - pageStartTime; // 毫秒
+
+      // 确保duration为正数且合理（不超过24小时）
+      const validDuration = Math.max(0, Math.min(duration, 24 * 60 * 60 * 1000));
 
       this.logDebugInfo(
-        `trackPageLeave - duration:${duration} - pageStartTime:${this.session.pageStartTime} - startTime:${this.session.startTime}`
+        `trackPageLeave - duration:${validDuration}ms - pageStartTime:${pageStartTime} - currentTime:${currentTime}`
       );
 
       this.addToQueue({
         event_type: "pageview",
-        session_duration: duration,
+        session_duration: validDuration,
         page_url: this.fullUrl,
         page_title: document.title,
         page_referrer: this.pageReferrer,
       });
 
-      // 更新页面开始时间
-      this.session.pageStartTime = Date.now();
+      // 更新页面开始时间为当前UTC时间戳
+      this.session.pageStartTime = currentTime;
 
       // 确保数据发送
       this.flushQueue();
