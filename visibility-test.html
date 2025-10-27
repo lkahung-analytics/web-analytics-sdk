@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面可见性追踪测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .timer {
+            font-size: 64px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .timer.total { color: #dc3545; }
+        .timer.visible { color: #28a745; }
+        .timer.hidden { color: #6c757d; }
+
+        .metric {
+            display: inline-block;
+            padding: 15px 25px;
+            margin: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #000; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-visible { background: #28a745; }
+        .status-hidden { background: #dc3545; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .instruction {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .instruction h4 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        .log-time { color: #608b4e; }
+        .log-event { color: #4ec9b0; }
+        .log-value { color: #ce9178; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .timer { font-size: 48px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 页面可见性追踪测试</h1>
+        <p>测试新的 Page Visibility API 集成 - 只追踪用户真正看到页面的时间</p>
+    </div>
+
+    <div class="instruction">
+        <h4>🧪 测试说明</h4>
+        <ol>
+            <li>点击"开始测试"按钮开始计时</li>
+            <li>尝试<strong>切换到其他标签页</strong>，然后切换回来，观察"可见时间"是否停止计时</li>
+            <li>尝试<strong>最小化浏览器</strong>，然后恢复，观察计时变化</li>
+            <li>点击"记录结果"查看 SDK 记录的实际可见时间</li>
+            <li>对比"总时间"和"可见时间"的差异</li>
+        </ol>
+    </div>
+
+    <!-- 状态指示器 -->
+    <div class="test-card">
+        <h2>
+            <span class="status-indicator status-visible" id="visibility-indicator"></span>
+            <span id="visibility-status">页面状态: 可见</span>
+        </h2>
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="btn btn-success" onclick="startTest()" id="start-btn">开始测试</button>
+            <button class="btn btn-danger" onclick="stopTest()" id="stop-btn" disabled>记录结果</button>
+            <button class="btn" onclick="resetTest()">重置</button>
+        </div>
+    </div>
+
+    <!-- 计时器显示 -->
+    <div class="grid">
+        <div class="test-card">
+            <h3>⏱️ 总时间（包含隐藏时间）</h3>
+            <div class="timer total" id="total-timer">00:00:00</div>
+            <p style="text-align: center; color: #6c757d;">
+                从开始到现在的所有时间
+            </p>
+        </div>
+
+        <div class="test-card">
+            <h3>✅ 实际可见时间（新追踪方式）</h3>
+            <div class="timer visible" id="visible-timer">00:00:00</div>
+            <p style="text-align: center; color: #6c757d;">
+                只计算页面可见的时间
+            </p>
+        </div>
+    </div>
+
+    <!-- 详细指标 -->
+    <div class="test-card">
+        <h3>📈 详细指标</h3>
+        <div style="text-align: center;">
+            <div class="metric">
+                <div class="metric-label">页面隐藏时间</div>
+                <div class="metric-value" id="hidden-time">0秒</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">切换次数</div>
+                <div class="metric-value" id="toggle-count">0次</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">准确度提升</div>
+                <div class="metric-value" id="accuracy-improvement">-</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">SDK记录时间</div>
+                <div class="metric-value" id="sdk-recorded">未记录</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对比表格 -->
+    <div class="test-card">
+        <h3>🔍 新旧实现对比</h3>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>特性</th>
+                    <th>旧实现</th>
+                    <th>新实现（当前）</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>计时方式</td>
+                    <td>简单时间差（结束时间 - 开始时间）</td>
+                    <td>累积可见时间段</td>
+                </tr>
+                <tr>
+                    <td>切换标签页</td>
+                    <td>❌ 继续计时</td>
+                    <td>✅ 暂停计时</td>
+                </tr>
+                <tr>
+                    <td>最小化窗口</td>
+                    <td>❌ 继续计时</td>
+                    <td>✅ 暂停计时</td>
+                </tr>
+                <tr>
+                    <td>锁屏/切换应用</td>
+                    <td>❌ 继续计时</td>
+                    <td>✅ 暂停计时</td>
+                </tr>
+                <tr>
+                    <td>用户交互检测</td>
+                    <td>❌ 无</td>
+                    <td>✅ 追踪最后交互时间</td>
+                </tr>
+                <tr>
+                    <td>Page Visibility API</td>
+                    <td>❌ 未使用</td>
+                    <td>✅ 使用 visibilitychange 事件</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 实时日志 -->
+    <div class="test-card">
+        <h3>📝 事件日志</h3>
+        <button class="btn" onclick="clearLog()">清空日志</button>
+        <div class="log" id="log-container"></div>
+    </div>
+
+    <script src="./analytics.js"></script>
+    <script>
+        let testStartTime = null;
+        let totalTimer = null;
+        let visibleTimer = null;
+        let toggleCount = 0;
+        let totalHiddenTime = 0;
+        let lastHiddenTime = null;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${timestamp}]</span> <span class="log-event">${type}</span> <span class="log-value">${message}</span>`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log-container').innerHTML = '';
+        }
+
+        // 格式化时间
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 初始化 SDK
+        Analytics.init({
+            appId: 'visibility-test',
+            endpoint: 'http://localhost:8080/collect',
+            debug: true,
+            isSPA: true,
+            uploadType: 'batch'
+        });
+        log('✅ Analytics SDK 初始化成功', 'INIT');
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            const indicator = document.getElementById('visibility-indicator');
+            const status = document.getElementById('visibility-status');
+
+            if (document.hidden) {
+                indicator.className = 'status-indicator status-hidden';
+                status.textContent = '页面状态: 隐藏';
+                lastHiddenTime = Date.now();
+                toggleCount++;
+                log('⚠️ 页面隐藏 - 计时已暂停', 'VISIBILITY');
+            } else {
+                indicator.className = 'status-indicator status-visible';
+                status.textContent = '页面状态: 可见';
+
+                if (lastHiddenTime) {
+                    const hiddenDuration = Date.now() - lastHiddenTime;
+                    totalHiddenTime += hiddenDuration;
+                    log(`✅ 页面可见 - 隐藏了 ${Math.floor(hiddenDuration/1000)} 秒`, 'VISIBILITY');
+                    lastHiddenTime = null;
+                }
+
+                toggleCount++;
+            }
+
+            document.getElementById('toggle-count').textContent = toggleCount + '次';
+        });
+
+        // 开始测试
+        function startTest() {
+            testStartTime = Date.now();
+            toggleCount = 0;
+            totalHiddenTime = 0;
+            lastHiddenTime = null;
+
+            // 重置 Analytics 的计时
+            Analytics.session.pageStartTime = testStartTime;
+            Analytics.session.visibleStartTime = testStartTime;
+            Analytics.session.totalVisibleTime = 0;
+
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+
+            // 启动计时器
+            totalTimer = setInterval(updateTimers, 100);
+
+            log('🚀 测试开始', 'TEST');
+        }
+
+        // 更新计时器
+        function updateTimers() {
+            if (!testStartTime) return;
+
+            const now = Date.now();
+            const totalElapsed = now - testStartTime;
+
+            // 计算可见时间
+            let visibleElapsed = Analytics.session.totalVisibleTime;
+            if (!document.hidden && Analytics.session.visibleStartTime) {
+                visibleElapsed += (now - Analytics.session.visibleStartTime);
+            }
+
+            document.getElementById('total-timer').textContent = formatTime(totalElapsed);
+            document.getElementById('visible-timer').textContent = formatTime(visibleElapsed);
+
+            // 更新隐藏时间
+            const hiddenTime = totalElapsed - visibleElapsed;
+            document.getElementById('hidden-time').textContent = Math.floor(hiddenTime / 1000) + '秒';
+
+            // 计算准确度提升
+            if (totalElapsed > 0) {
+                const improvement = ((hiddenTime / totalElapsed) * 100).toFixed(1);
+                document.getElementById('accuracy-improvement').textContent = improvement + '%';
+            }
+        }
+
+        // 停止测试
+        function stopTest() {
+            clearInterval(totalTimer);
+
+            // 触发 SDK 记录
+            Analytics.trackPageLeave();
+
+            // 获取 SDK 记录的时间
+            setTimeout(() => {
+                const queue = Analytics.eventQueue;
+                if (queue.length > 0) {
+                    const lastEvent = queue[queue.length - 1];
+                    if (lastEvent.session_duration !== undefined) {
+                        const sdkTime = Math.floor(lastEvent.session_duration / 1000);
+                        document.getElementById('sdk-recorded').textContent = sdkTime + '秒';
+                        log(`✅ SDK 记录时间: ${sdkTime} 秒`, 'RESULT');
+                    }
+                }
+            }, 100);
+
+            document.getElementById('stop-btn').disabled = true;
+            log('🏁 测试结束 - 结果已记录', 'TEST');
+        }
+
+        // 重置测试
+        function resetTest() {
+            clearInterval(totalTimer);
+            testStartTime = null;
+            toggleCount = 0;
+            totalHiddenTime = 0;
+            lastHiddenTime = null;
+
+            document.getElementById('total-timer').textContent = '00:00:00';
+            document.getElementById('visible-timer').textContent = '00:00:00';
+            document.getElementById('hidden-time').textContent = '0秒';
+            document.getElementById('toggle-count').textContent = '0次';
+            document.getElementById('accuracy-improvement').textContent = '-';
+            document.getElementById('sdk-recorded').textContent = '未记录';
+
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+
+            log('🔄 测试已重置', 'TEST');
+        }
+
+        // 页面加载完成
+        log('📄 测试页面加载完成', 'INFO');
+    </script>
+</body>
+</html>

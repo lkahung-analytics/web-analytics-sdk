@@ -30,6 +30,10 @@
       startTime: null,
       sessionId: null,
       pageStartTime: null, // 添加页面开始时间戳
+      visibleStartTime: null, // 页面变为可见时的时间戳
+      totalVisibleTime: 0, // 累积的可见时间（毫秒）
+      isVisible: true, // 当前页面是否可见
+      lastInteractionTime: null, // 最后一次用户交互时间
     },
 
     // 当前页面地址
@@ -67,6 +71,11 @@
       this.session.sessionId = this.generateSessionId();
       // 初始化页面开始时间
       this.session.pageStartTime = Date.now();
+      // 初始化可见时间追踪
+      this.session.visibleStartTime = Date.now();
+      this.session.totalVisibleTime = 0;
+      this.session.isVisible = !document.hidden;
+      this.session.lastInteractionTime = Date.now();
 
       // 设置页面追踪
       this.setupPageTracking();
@@ -169,16 +178,20 @@
 
     // 页面离开追踪
     trackPageLeave: function () {
-      // 使用UTC时间戳确保时区一致性
       const currentTime = Date.now();
-      const pageStartTime = this.session.pageStartTime || this.session.startTime;
-      const duration = currentTime - pageStartTime; // 毫秒
+      let actualVisibleTime = this.session.totalVisibleTime;
+
+      // 如果页面当前可见，加上当前可见时段的时间
+      if (!document.hidden && this.session.visibleStartTime) {
+        const currentVisibleDuration = currentTime - this.session.visibleStartTime;
+        actualVisibleTime += currentVisibleDuration;
+      }
 
       // 确保duration为正数且合理（不超过24小时）
-      const validDuration = Math.max(0, Math.min(duration, 24 * 60 * 60 * 1000));
+      const validDuration = Math.max(0, Math.min(actualVisibleTime, 24 * 60 * 60 * 1000));
 
       this.logDebugInfo(
-        `trackPageLeave - duration:${validDuration}ms - pageStartTime:${pageStartTime} - currentTime:${currentTime}`
+        `trackPageLeave - actualVisibleTime:${actualVisibleTime}ms - totalVisibleTime:${this.session.totalVisibleTime}ms - isVisible:${!document.hidden} - currentTime:${currentTime}`
       );
 
       this.addToQueue({
@@ -189,8 +202,10 @@
         page_referrer: this.pageReferrer,
       });
 
-      // 更新页面开始时间为当前UTC时间戳
+      // 重置可见时间追踪
       this.session.pageStartTime = currentTime;
+      this.session.visibleStartTime = currentTime;
+      this.session.totalVisibleTime = 0;
 
       // 确保数据发送
       this.flushQueue();
@@ -245,6 +260,51 @@
     },
     // 设置页面追踪
     setupPageTracking: function () {
+      // 监听页面可见性变化 - 核心改进
+      document.addEventListener("visibilitychange", () => {
+        const currentTime = Date.now();
+
+        if (document.hidden) {
+          // 页面隐藏：累积当前的可见时间
+          if (this.session.isVisible && this.session.visibleStartTime) {
+            const visibleDuration = currentTime - this.session.visibleStartTime;
+            this.session.totalVisibleTime += visibleDuration;
+
+            this.logDebugInfo(
+              `Page hidden - visibleDuration: ${visibleDuration}ms, totalVisibleTime: ${this.session.totalVisibleTime}ms`
+            );
+          }
+          this.session.isVisible = false;
+          this.session.visibleStartTime = null;
+        } else {
+          // 页面重新可见：重新开始计时
+          this.session.visibleStartTime = currentTime;
+          this.session.isVisible = true;
+
+          this.logDebugInfo(
+            `Page visible - starting new visible session at ${currentTime}`
+          );
+        }
+      });
+
+      // 监听用户交互以更新最后交互时间
+      const interactionEvents = ["click", "scroll", "keydown", "mousemove", "touchstart"];
+      let interactionThrottle = null;
+
+      interactionEvents.forEach((eventType) => {
+        document.addEventListener(eventType, () => {
+          // 节流处理，避免频繁更新
+          if (!interactionThrottle) {
+            this.session.lastInteractionTime = Date.now();
+            this.logDebugInfo(`User interaction detected: ${eventType}`);
+
+            interactionThrottle = setTimeout(() => {
+              interactionThrottle = null;
+            }, 1000); // 1秒节流
+          }
+        }, { passive: true });
+      });
+
       // 判断是否为移动设备
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       this.logDebugInfo(
