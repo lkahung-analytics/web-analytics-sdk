@@ -155,17 +155,25 @@
 
       const events = [...this.eventQueue];
       this.eventQueue = [];
+      const payload = JSON.stringify(events);
 
       try {
         if (navigator.sendBeacon) {
-          this.logDebugInfo(`Events sendBeacon: ${JSON.stringify(events)}`);
-          navigator.sendBeacon(this.config.endpoint, JSON.stringify(events));
+          this.logDebugInfo(`Events sendBeacon: ${payload}`);
+          const sent = navigator.sendBeacon(this.config.endpoint, payload);
+          this.logDebugInfo(
+            `Collect sendBeacon result: endpoint=${this.config.endpoint}, success=${sent}, events=${events.length}`,
+          );
         } else {
-          this.logDebugInfo(`Events fetch: ${JSON.stringify(events)}`);
-          await fetch(this.config.endpoint, {
+          this.logDebugInfo(`Events fetch: ${payload}`);
+          const response = await fetch(this.config.endpoint, {
             method: "POST",
-            body: JSON.stringify(events),
+            body: payload,
           });
+          const responseText = await response.text();
+          this.logDebugInfo(
+            `Collect fetch response: endpoint=${this.config.endpoint}, status=${response.status}, ok=${response.ok}, events=${events.length}, body=${responseText}`,
+          );
         }
       } catch (err) {
         if (this.config.debug) {
@@ -183,15 +191,19 @@
 
       // 如果页面当前可见，加上当前可见时段的时间
       if (!document.hidden && this.session.visibleStartTime) {
-        const currentVisibleDuration = currentTime - this.session.visibleStartTime;
+        const currentVisibleDuration =
+          currentTime - this.session.visibleStartTime;
         actualVisibleTime += currentVisibleDuration;
       }
 
       // 确保duration为正数且合理（不超过24小时）
-      const validDuration = Math.max(0, Math.min(actualVisibleTime, 24 * 60 * 60 * 1000));
+      const validDuration = Math.max(
+        0,
+        Math.min(actualVisibleTime, 24 * 60 * 60 * 1000),
+      );
 
       this.logDebugInfo(
-        `trackPageLeave - actualVisibleTime:${actualVisibleTime}ms - totalVisibleTime:${this.session.totalVisibleTime}ms - isVisible:${!document.hidden} - currentTime:${currentTime}`
+        `trackPageLeave - actualVisibleTime:${actualVisibleTime}ms - totalVisibleTime:${this.session.totalVisibleTime}ms - isVisible:${!document.hidden} - currentTime:${currentTime}`,
       );
 
       this.addToQueue({
@@ -237,7 +249,7 @@
         this.lastTrackTime,
         this.minTrackInterval,
         "isRefreshing:",
-        this.isRefreshing
+        this.isRefreshing,
       );
 
       // 如果正在刷新中，不再触发追踪
@@ -271,7 +283,7 @@
             this.session.totalVisibleTime += visibleDuration;
 
             this.logDebugInfo(
-              `Page hidden - visibleDuration: ${visibleDuration}ms, totalVisibleTime: ${this.session.totalVisibleTime}ms`
+              `Page hidden - visibleDuration: ${visibleDuration}ms, totalVisibleTime: ${this.session.totalVisibleTime}ms`,
             );
           }
           this.session.isVisible = false;
@@ -282,33 +294,43 @@
           this.session.isVisible = true;
 
           this.logDebugInfo(
-            `Page visible - starting new visible session at ${currentTime}`
+            `Page visible - starting new visible session at ${currentTime}`,
           );
         }
       });
 
       // 监听用户交互以更新最后交互时间
-      const interactionEvents = ["click", "scroll", "keydown", "mousemove", "touchstart"];
+      const interactionEvents = [
+        "click",
+        "scroll",
+        "keydown",
+        "mousemove",
+        "touchstart",
+      ];
       let interactionThrottle = null;
 
       interactionEvents.forEach((eventType) => {
-        document.addEventListener(eventType, () => {
-          // 节流处理，避免频繁更新
-          if (!interactionThrottle) {
-            this.session.lastInteractionTime = Date.now();
-            this.logDebugInfo(`User interaction detected: ${eventType}`);
+        document.addEventListener(
+          eventType,
+          () => {
+            // 节流处理，避免频繁更新
+            if (!interactionThrottle) {
+              this.session.lastInteractionTime = Date.now();
+              this.logDebugInfo(`User interaction detected: ${eventType}`);
 
-            interactionThrottle = setTimeout(() => {
-              interactionThrottle = null;
-            }, 1000); // 1秒节流
-          }
-        }, { passive: true });
+              interactionThrottle = setTimeout(() => {
+                interactionThrottle = null;
+              }, 1000); // 1秒节流
+            }
+          },
+          { passive: true },
+        );
       });
 
       // 判断是否为移动设备
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       this.logDebugInfo(
-        `isMobile: ${isMobile} - navigator.userAgent: ${navigator.userAgent}`
+        `isMobile: ${isMobile} - navigator.userAgent: ${navigator.userAgent}`,
       );
 
       if (isMobile) {

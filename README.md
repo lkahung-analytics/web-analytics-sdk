@@ -13,7 +13,7 @@ A lightweight, easy-to-use web analytics tracking SDK for monitoring website usa
 ## 📦 Installation
 
 ```bash
-npm install @lkahung/web-analytics
+npm install @lkahung/web-analytics@^0.5.0
 ```
 
 ## 🔧 Usage
@@ -26,9 +26,9 @@ npm install @lkahung/web-analytics
   window.Analytics.init({
     appId: "your-app-id",
     endpoint: "https://your-analytics-endpoint.com/collect",
-    routerMode: "history",
+    routerMode: "history", // required
+    isSPA: false, // required
     debug: true,
-    isSPA: false,
   });
 
   // Track a custom event
@@ -45,9 +45,9 @@ import analytics from "@lkahung/web-analytics";
 analytics.init({
   appId: "your-app-id",
   endpoint: "https://your-analytics-endpoint.com/collect",
-  routerMode: "hash",
+  routerMode: "hash", // required
+  isSPA: true, // required
   debug: true,
-  isSPA: true,
 });
 
 // Track events
@@ -57,17 +57,39 @@ analytics.trackEvent("button", "click", "signup-button");
 ## 📝 Configuration
 
 - `appId`: **Required**. Your unique site identifier
-- `isSPA`: **Required**. Boolean flag to indicate if the application is a Single Page Application
-- `endpoint`: **Required**. Custom collection endpoint (defaults to http://localhost:8080/collect)
-- `routerMode`: **Required**. Specifies the routing mode for Single Page Applications. Accepts `"history"` or `"hash"` (defaults to `"history"`)
-- `debug`: Optional. Enable console logging (defaults to false)
-- `isSPA`: Optional. Boolean flag to indicate if the application is a Single Page Application
+- `endpoint`: **Required**. Custom collection endpoint (defaults to `http://localhost:8080/collect`)
+- `routerMode`: **Required**. SPA routing mode, accepts `"history"` or `"hash"` (defaults to `"history"`)
+- `isSPA`: **Required**. Whether current app is SPA (`true` / `false`)
+- `debug`: Optional. Enable console logging (defaults to `false`)
 - `uploadType`: Optional. Specifies the type of data upload mechanism. Accepts `"batch"` or `"single"` (defaults to `"batch"`)
 - `batchSize`: Optional. Number of events to batch before sending (only applicable if `uploadType` is `"batch"`)
 - `uploadInterval`: Optional. Time interval in milliseconds to wait before sending batched events (only applicable if `uploadType` is `"batch"`)
 - `autoTrackRouter`: Optional. Automatically track page views for Single Page Applications (defaults to `true`)
 
-### Vue.js / Nuxt.js
+### Vue 3
+
+```typescript
+// src/plugins/analytics.ts
+import type { App } from "vue";
+import analytics from "@lkahung/web-analytics";
+
+export default {
+  install(app: App) {
+    analytics.init({
+      appId: "your-site-id",
+      endpoint: "your-endpoint",
+      routerMode: "history",
+      isSPA: true,
+      debug: false,
+      autoTrackRouter: true,
+    });
+    app.config.globalProperties.$analytics = analytics;
+    app.provide("analytics", analytics);
+  },
+};
+```
+
+### Nuxt 3
 
 ```typescript
 // plugins/analytics.client.ts
@@ -77,10 +99,16 @@ export default defineNuxtPlugin(() => {
   analytics.init({
     appId: "your-site-id",
     endpoint: "your-endpoint",
-    routerMode: "hash",
-    debug: false,
+    routerMode: "history",
     isSPA: true,
+    debug: false,
+    autoTrackRouter: true,
   });
+  return {
+    provide: {
+      analytics,
+    },
+  };
 });
 ```
 
