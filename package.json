@@ -22,12 +22,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/laungkahung/web-analytics.git"
+    "url": "https://github.com/lkahung-analytics/web-analytics-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/laungkahung/web-analytics/issues"
+    "url": "https://github.com/lkahung-analytics/web-analytics-sdk/issues"
   },
-  "homepage": "https://github.com/laungkahung/web-analytics#readme",
+  "homepage": "https://github.com/lkahung-analytics/web-analytics-sdk#readme",
   "engines": {
     "node": ">=22.0.0"
   },
