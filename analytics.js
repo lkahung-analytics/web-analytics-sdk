@@ -33,19 +33,22 @@
       visibleStartTime: null, // 页面变为可见时的时间戳
       totalVisibleTime: 0, // 累积的可见时间（毫秒）
       isVisible: true, // 当前页面是否可见
-      lastInteractionTime: null, // 最后一次用户交互时间
     },
 
-    // 当前页面地址
-    fullUrl: window.location.href,
+    // 当前页面地址（在 init 中赋值，避免 SSR 顶层访问 window 崩溃）
+    fullUrl: "",
     // 来源页面
-    pageReferrer: document.referrer,
+    pageReferrer: "",
 
     // 事件队列
     eventQueue: [],
 
     // 初始化SDK
     init: function (options) {
+      // SSR 安全：服务端无 window，init 变 no-op，等到客户端再执行
+      if (typeof window === "undefined") {
+        return this;
+      }
       if (!options.appId) {
         throw new Error("appId is required");
       }
@@ -75,7 +78,10 @@
       this.session.visibleStartTime = Date.now();
       this.session.totalVisibleTime = 0;
       this.session.isVisible = !document.hidden;
-      this.session.lastInteractionTime = Date.now();
+
+      // 当前/来源页面地址（此处 window 已存在）
+      this.fullUrl = window.location.href;
+      this.pageReferrer = document.referrer;
 
       // 设置页面追踪
       this.setupPageTracking();
@@ -92,23 +98,35 @@
 
     // 生成唯一访客ID
     generateVisitorId: function () {
-      let visitorId = localStorage.getItem("wa_visitor_id");
+      let visitorId = null;
+      try {
+        visitorId = localStorage.getItem("wa_visitor_id");
+      } catch (e) {
+        // localStorage 被禁用/隐私模式：降级为本次内存 ID
+      }
       if (!visitorId) {
         visitorId =
           "v_" +
           Math.random().toString(36).substring(2) +
           Date.now().toString(36);
-        localStorage.setItem("wa_visitor_id", visitorId);
+        try {
+          localStorage.setItem("wa_visitor_id", visitorId);
+        } catch (e) {}
       }
       return visitorId;
     },
 
     // 生成唯一会话ID
     generateSessionId: function () {
-      let sessionId = localStorage.getItem("session_id");
+      let sessionId = null;
+      try {
+        sessionId = localStorage.getItem("session_id");
+      } catch (e) {}
       if (!sessionId) {
         sessionId = Date.now() + "-" + Math.random().toString(36).slice(2);
-        localStorage.setItem("session_id", sessionId);
+        try {
+          localStorage.setItem("session_id", sessionId);
+        } catch (e) {}
       }
       return sessionId;
     },
@@ -161,6 +179,10 @@
         if (navigator.sendBeacon) {
           this.logDebugInfo(`Events sendBeacon: ${payload}`);
           const sent = navigator.sendBeacon(this.config.endpoint, payload);
+          if (!sent) {
+            // 浏览器拒绝排队（payload 超限/队列满）→ 重新入队，等下次
+            this.eventQueue.unshift(...events);
+          }
           this.logDebugInfo(
             `Collect sendBeacon result: endpoint=${this.config.endpoint}, success=${sent}, events=${events.length}`,
           );
@@ -299,34 +321,6 @@
         }
       });
 
-      // 监听用户交互以更新最后交互时间
-      const interactionEvents = [
-        "click",
-        "scroll",
-        "keydown",
-        "mousemove",
-        "touchstart",
-      ];
-      let interactionThrottle = null;
-
-      interactionEvents.forEach((eventType) => {
-        document.addEventListener(
-          eventType,
-          () => {
-            // 节流处理，避免频繁更新
-            if (!interactionThrottle) {
-              this.session.lastInteractionTime = Date.now();
-              this.logDebugInfo(`User interaction detected: ${eventType}`);
-
-              interactionThrottle = setTimeout(() => {
-                interactionThrottle = null;
-              }, 1000); // 1秒节流
-            }
-          },
-          { passive: true },
-        );
-      });
-
       // 判断是否为移动设备
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       this.logDebugInfo(
@@ -358,20 +352,26 @@
         history.pushState = (...args) => {
           this.logDebugInfo("pushState event triggered");
 
-          this.pageReferrer = this.fullUrl;
-          this.fullUrl = window.location.href;
-
+          // 先上报离开旧页（此时 this.fullUrl 仍是旧页 URL）
           if (this.shouldTrack()) {
             this.trackPageLeave();
           }
+          // 执行真正的跳转，URL 此刻才变为新页
           originalPushState.apply(history, args);
+          // 跳转后更新来源页与当前页
+          this.pageReferrer = this.fullUrl;
+          this.fullUrl = window.location.href;
         };
 
         window.addEventListener("popstate", () => {
           this.logDebugInfo("popstate event triggered");
+          // 上报离开旧页（this.fullUrl 仍是旧页）
           if (this.shouldTrack()) {
             this.trackPageLeave();
           }
+          // popstate 触发时 URL 已变，同步当前页/来源页
+          this.pageReferrer = this.fullUrl;
+          this.fullUrl = window.location.href;
         });
       }
 
@@ -380,6 +380,9 @@
         window.addEventListener("hashchange", () => {
           this.logDebugInfo("hashchange event triggered");
           this.trackPageLeave();
+          // hash 已变，同步当前页/来源页
+          this.pageReferrer = this.fullUrl;
+          this.fullUrl = window.location.href;
         });
       }
     },
